@@ -1,0 +1,8 @@
+version: "2.0"
+
+rules:
+
+- rule: Say feedback anytime the user says feedback
+  steps:
+  - intent: feedback
+  - action: utter_feedback
