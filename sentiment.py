@@ -34,12 +34,32 @@ class SentimentAnalyzer(Component):
             labels = f.read().splitlines()
         training_data = training_data.training_examples #list of Message objects
         tokens = []
+        features = []
         for t in training_data:
-            if t.data.get('text_tokens') == None:
-                continue
+            print("-----------------------------------------------")
+            # print(t.__dict__.keys())
+            # print(t.data)
+            # print(t.features)            
+            if t.data.get('text_tokens') == None or len(t.features) == 0:
+                continue               
             tokens.append(map(lambda x: x.text, t.data.get('text_tokens')))
+            print(t.data.get('text_tokens'))
+            for f in t.features:
+                print(f.__dict__.keys())  
+                print(f.features)  
+                print(f.type)
+                print(f.origin)
+                print(f.attribute)
+                print(f.features.shape) 
+                # if f.type == "sentence": 
+                #     tokens.append(f.features[0,:])  
+            # print(tokens)
+        # print("features: ", features)
         processed_tokens = [self.preprocessing(t) for t in tokens]
+        print("processed_tokens ", processed_tokens)
         labeled_data = [(t, x) for t,x in zip(processed_tokens, labels)]
+        # labeled_data = [(t, f, x) for t,f,x in zip(processed_tokens, features, labels)]
+        print("labeled_data ", labeled_data)
         self.clf = NaiveBayesClassifier.train(labeled_data)
 
 
@@ -67,9 +87,14 @@ class SentimentAnalyzer(Component):
             # receive enough training data
             entity = None
         else:
-            if message.data.get('text_tokens') != None:                
-                print(message.data.get('text_tokens'))
+            if message.data.get('text_tokens') != None: 
+                print(message.features)               
+                print(message.data)
                 tokens = [t.text for t in message.data.get("text_tokens")]
+                for f in message.features: 
+                    if f.type == "sentence": 
+                        print(f.features[0,:].shape)
+                        tokens.append(f.features[0,:])  
                 print("tokens: ", tokens)
                 tb = self.preprocessing(tokens)
                 print(tb)

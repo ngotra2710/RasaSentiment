@@ -29,8 +29,8 @@ pipeline:
    #   ambiguity_threshold: 0.1
    - name: "SpacyNLP"
    - name: "SpacyTokenizer"
-   - name: "sentiment.SentimentAnalyzer" 
    - name: "SpacyFeaturizer"
+   - name: "sentiment.SentimentAnalyzer"    
    - name: "RegexFeaturizer"
    - name: "CRFEntityExtractor"
    - name: "EntitySynonymMapper"
