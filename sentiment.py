@@ -10,9 +10,18 @@ import os
 import typing
 from typing import Any, Optional, Text, Dict
 import jsonpickle
+from sklearn.svm import SVC
+import json
+from json import JSONEncoder
+import numpy
 
 SENTIMENT_MODEL_FILE_NAME = "sentiment_classifier.pkl"
 
+class NumpyArrayEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, numpy.ndarray):
+            return obj.tolist()
+        return JSONEncoder.default(self, obj)
 
 class SentimentAnalyzer(Component):
     """A custom sentiment analysis component"""
@@ -51,8 +60,8 @@ class SentimentAnalyzer(Component):
                 print(f.origin)
                 print(f.attribute)
                 print(f.features.shape) 
-                # if f.type == "sentence": 
-                #     tokens.append(f.features[0,:])  
+                if f.type == "sentence": 
+                    features.append(f.features[0,:])  
             # print(tokens)
         # print("features: ", features)
         processed_tokens = [self.preprocessing(t) for t in tokens]
@@ -61,16 +70,19 @@ class SentimentAnalyzer(Component):
         # labeled_data = [(t, f, x) for t,f,x in zip(processed_tokens, features, labels)]
         print("labeled_data ", labeled_data)
         self.clf = NaiveBayesClassifier.train(labeled_data)
+        self.clf1 = SVC(kernel="linear")
+        self.clf1.fit(features, labels)
 
 
-    def convert_to_rasa(self, value, confidence):
+    def convert_to_rasa(self, value, confidence, type_predict):
         """Convert model output into the Rasa NLU compatible output format."""
-
+        # print("+++++++++++++++++++")
+        # print(confidence)
         entity = {"value": value,
                   "confidence": confidence,
-                  "entity": "sentiment",
-                  "extractor": "sentiment_extractor"}
-
+                  "entity": type_predict,
+                  "extractor": type_predict + "_extractor"}
+        # print(entity)
         return entity
 
     def preprocessing(self, tokens):
@@ -88,25 +100,32 @@ class SentimentAnalyzer(Component):
             entity = None
         else:
             if message.data.get('text_tokens') != None: 
-                print(message.features)               
-                print(message.data)
+                # print(message.features)               
+                # print(message.data)
                 tokens = [t.text for t in message.data.get("text_tokens")]
-                for f in message.features: 
-                    if f.type == "sentence": 
-                        print(f.features[0,:].shape)
-                        tokens.append(f.features[0,:])  
                 print("tokens: ", tokens)
                 tb = self.preprocessing(tokens)
                 print(tb)
                 pred = self.clf.prob_classify(tb)
                 print(pred.max())
 
-                sentiment = pred.max()
-                confidence = pred.prob(sentiment)
+                sentiment_NB = pred.max()
+                confidence_NB = pred.prob(sentiment_NB)
 
-                entity = self.convert_to_rasa(sentiment, confidence)
+                entity_NB = self.convert_to_rasa(sentiment_NB, confidence_NB, "sentiment_NB")
+                message.set("entity_NB", [entity_NB], add_to_output=True)
 
-                message.set("entities", [entity], add_to_output=True)
+                features = []
+                for f in message.features:
+                    if f.type == "sentence": 
+                        features.append(f.features[0,:])  
+                sentiment_SVC = self.clf1.predict(features)
+                confidence_SVC = self.clf1.decision_function(features)
+
+                entity_SVC = self.convert_to_rasa(sentiment_SVC, confidence_SVC, "entity_SVC")
+                encoded_entity_SVC = json.dumps(entity_SVC, cls=NumpyArrayEncoder)
+                message.set("entity_SVC", [encoded_entity_SVC], add_to_output=True)
+                
 
     def persist(self, file_name, model_dir):
         """Persist this model into the passed directory."""
